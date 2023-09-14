@@ -13,7 +13,7 @@ public class StringHandler {
     }
 
     public String peekString(int i){
-        return filestring.substring(index, i);
+        return filestring.substring(index, i - 1);
     }
 
     public char getChar(){
