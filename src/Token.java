@@ -46,10 +46,8 @@ public class Token {
                 return "WORD(" + this.value + ")";
             case NUMBER:
                 return "NUMBER(" + this.value + ")";
-            case SEPARATOR:
-                return "NEWLINE";
             default:
-                return null;
+                return type.toString();
         }
     }
 }

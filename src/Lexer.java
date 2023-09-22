@@ -191,7 +191,10 @@ public class Lexer {
         try {
             symbolPeek = "" + file.peek(0) + file.peek(1);
         } catch (Exception e) {
-            throw new RuntimeException("SYMBOL FOUND AT END OF FILE. SYNTAX ERROR!");
+            symbolPeek = "" + file.peek(0);
+            file.swallow(1);
+            charPos++;
+            return new Token(singleSymbols.get(symbolPeek), linenum, charPos-1);
         }
         if (doubleSymbols.containsKey(symbolPeek)) {
             file.swallow(2);
