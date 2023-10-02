@@ -82,8 +82,6 @@ public class Parser {
                 tokens.matchAndRemove(Token.TokenType.END);
                 program.addEndBlock(parseBlock());
             } else {
-                //conditions and errors
-                //TODO: EDIT AT PARSER 2
                 parseOperation();
                 program.addBlock(parseBlock());
             }
@@ -97,6 +95,100 @@ public class Parser {
     }
 
     private Optional<Node> parseOperation(){
-        return Optional.empty();
+        Optional<Node> bottomLevelResult = parseBottomLevel();
+        if(tokens.moreTokens() && bottomLevelResult.isPresent()){
+            if(tokens.peek(0).get().type == Token.TokenType.INCREMENT){
+                return Optional.of(new OperationNode(bottomLevelResult.get(), OperationNode.operationType.POSTINC));
+            }
+            else if(tokens.peek(0).get().type == Token.TokenType.DECREMENT){
+                return Optional.of(new OperationNode(bottomLevelResult.get(), OperationNode.operationType.POSTDEC));
+            } else {
+                return bottomLevelResult;
+            }
+        }
+
+    }
+
+
+
+    private Optional<Node> parseBottomLevel(){
+        Optional<Node> result;
+        switch (tokens.peek(0).get().type){
+            case STRINGLITERAL:
+            case NUMBER:
+                return Optional.of(new ConstantNode(tokens.matchAndRemove(tokens.peek(0).get().type).get().value));
+            case PATTERN:
+                return Optional.of(new PatternNode(tokens.matchAndRemove(Token.TokenType.PATTERN).get().value));
+            case OPEN_PAREN:
+                tokens.matchAndRemove(Token.TokenType.OPEN_PAREN);
+                result = parseOperation();
+                if(tokens.peek(0).get().type != Token.TokenType.CLOSE_PAREN){
+                    throw new RuntimeException("no close parenthes found at expression at line " + tokens.peek(0).get().linenum );
+                }
+                tokens.matchAndRemove(Token.TokenType.CLOSE_PAREN);
+                return result;
+            case NOT:
+                tokens.matchAndRemove(Token.TokenType.NOT);
+                result = parseOperation();
+                if(result.isPresent()){
+                    return Optional.of(new OperationNode(result.get(), OperationNode.operationType.NOT));
+                }
+                throw new RuntimeException("could not parse not expression at line " + tokens.peek(0).get().linenum);
+            case MINUS:
+                tokens.matchAndRemove(Token.TokenType.MINUS);
+                result = parseOperation();
+                if(result.isPresent()){
+                    return Optional.of(new OperationNode(result.get(), OperationNode.operationType.UNARYNEG));
+                }
+                throw new RuntimeException("could not parse unary negation expression at line " + tokens.peek(0).get().linenum);
+            case PLUS:
+                tokens.matchAndRemove(Token.TokenType.PLUS);
+                result = parseOperation();
+                if(result.isPresent()){
+                    return Optional.of(new OperationNode(result.get(), OperationNode.operationType.UNARYPOS));
+                }
+                throw new RuntimeException("could not parse Unary addition expression at line " + tokens.peek(0).get().linenum);
+            case INCREMENT:
+                tokens.matchAndRemove(Token.TokenType.INCREMENT);
+                result = parseOperation();
+                if(result.isPresent()){
+                    return Optional.of(new OperationNode(result.get(), OperationNode.operationType.PREINC));
+                }
+                throw new RuntimeException("could not parse preincrement expression at line " + tokens.peek(0).get().linenum);
+            case DECREMENT:
+                tokens.matchAndRemove(Token.TokenType.DECREMENT);
+                result = parseOperation();
+                if(result.isPresent()){
+                    return Optional.of(new OperationNode(result.get(), OperationNode.operationType.PREDEC));
+                }
+                throw new RuntimeException("could not parse predecrement expression at line " + tokens.peek(0).get().linenum);
+            default:
+                return parseLValue();
+        }
+
+    }
+
+    private Optional<Node> parseLValue(){
+        if(tokens.peek(0).get().type == Token.TokenType.DOLLAR){
+            tokens.matchAndRemove(Token.TokenType.DOLLAR);
+            return Optional.of(new OperationNode(parseBottomLevel().get(), OperationNode.operationType.DOLLAR));
+        }
+        else if(tokens.peek(0).get().type == Token.TokenType.WORD){
+            String varName = tokens.matchAndRemove(Token.TokenType.WORD).get().value;
+            if(tokens.moreTokens() && tokens.peek(0).get().type == Token.TokenType.OPEN_SQAURE){
+                tokens.matchAndRemove(Token.TokenType.OPEN_SQAURE);
+                Optional<Node> expression = parseOperation();
+                if(tokens.peek(0).get().type != Token.TokenType.CLOSE_SQUARE){
+                    throw new RuntimeException("failed to close array index brackets at line " + tokens.peek(0).get().linenum);
+                }
+                return Optional.of(new VariableReferenceNode(varName, expression));
+            }
+            else{
+                return Optional.of(new VariableReferenceNode(varName, Optional.empty()));
+            }
+        }
+        else{
+            throw new RuntimeException("$ or word not found when attempting to parse Lvalue at line " + tokens.peek(0).get().linenum);
+        }
     }
 }
