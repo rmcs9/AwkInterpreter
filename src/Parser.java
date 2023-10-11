@@ -75,11 +75,9 @@ public class Parser {
 
     private boolean parseAction(ProgramNode program){
         if(tokens.peek(0).isPresent()) {
-            if (tokens.peek(0).get().type == Token.TokenType.BEGIN) {
-                tokens.matchAndRemove(Token.TokenType.BEGIN);
+            if (tokens.matchAndRemove(Token.TokenType.BEGIN).isPresent()) {
                 program.addStartBlock(parseBlock());
-            } else if (tokens.peek(0).get().type == Token.TokenType.END) {
-                tokens.matchAndRemove(Token.TokenType.END);
+            } else if (tokens.matchAndRemove(Token.TokenType.END).isPresent()) {
                 program.addEndBlock(parseBlock());
             } else {
                 parseOperation();
@@ -94,23 +92,400 @@ public class Parser {
         return new BlockNode();
     }
 
-    private Optional<Node> parseOperation(){
-        Optional<Node> bottomLevelResult = parseBottomLevel();
-        if(tokens.moreTokens() && bottomLevelResult.isPresent()){
-            if(tokens.peek(0).get().type == Token.TokenType.INCREMENT){
-                return Optional.of(new OperationNode(bottomLevelResult.get(), OperationNode.operationType.POSTINC));
+    public Optional<Node> parseOperation() {
+        return parseAssignment();
+    }
+
+    private Optional<Node> parseAssignment(){
+        Optional<Node> ex1 = parseTernary();
+        Optional<Node> ex2;
+
+        if(ex1.isPresent()){
+            if(tokens.matchAndRemove(Token.TokenType.EQUALS).isPresent()){
+                acceptSeperators();
+                ex2 = parseOperation();
+                if(ex2.isPresent()){
+                    ex1 = Optional.of(new AssignmentNode((VariableReferenceNode)ex1.get(), ex2));
+                }
+                else{
+                    throw new RuntimeException("no expression found after = at line " +tokens.peek(0).get().linenum);
+                }
             }
-            else if(tokens.peek(0).get().type == Token.TokenType.DECREMENT){
-                return Optional.of(new OperationNode(bottomLevelResult.get(), OperationNode.operationType.POSTDEC));
-            } else {
-                return bottomLevelResult;
+            else if(tokens.matchAndRemove(Token.TokenType.PLUS_EQUALS).isPresent()){
+                acceptSeperators();
+                ex2 = parseOperation();
+                if(ex2.isPresent()){
+                    ex1 = Optional.of(new AssignmentNode((VariableReferenceNode)ex1.get(),
+                            Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.ADD))));
+                }
+                else{
+                    throw new RuntimeException("no expression found after += at line " +tokens.peek(0).get().linenum);
+                }
+            }
+            else if(tokens.matchAndRemove(Token.TokenType.MINUS_EQUALS).isPresent()){
+                acceptSeperators();
+                ex2 = parseOperation();
+                if(ex2.isPresent()){
+                    ex1 = Optional.of(new AssignmentNode((VariableReferenceNode)ex1.get(),
+                            Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.SUBTRACT))));
+                }
+                else{
+                    throw new RuntimeException("no expression found after -= at line " +tokens.peek(0).get().linenum);
+                }
+            }
+            else if(tokens.matchAndRemove(Token.TokenType.SLASH_EQUALS).isPresent()){
+                acceptSeperators();
+                ex2 = parseOperation();
+                if (ex2.isPresent()) {
+                    ex1 = Optional.of(new AssignmentNode((VariableReferenceNode)ex1.get(),
+                            Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.DIVIDE))));
+                }
+                else{
+                    throw new RuntimeException("no expression found after /= at line " +tokens.peek(0).get().linenum);
+                }
+            }
+            else if(tokens.matchAndRemove(Token.TokenType.STAR_EQUALS).isPresent()){
+                acceptSeperators();
+                ex2 = parseOperation();
+                if(ex2.isPresent()){
+                    ex1 = Optional.of(new AssignmentNode((VariableReferenceNode) ex1.get(),
+                            Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.MULTIPLY))));
+                }
+                else{
+                    throw new RuntimeException("no expression found after *= at line " +tokens.peek(0).get().linenum);
+                }
+            }
+            else if(tokens.matchAndRemove(Token.TokenType.PERCENT_EQUALS).isPresent()){
+                acceptSeperators();
+                ex2 = parseOperation();
+                if(ex2.isPresent()){
+                    ex1 = Optional.of(new AssignmentNode((VariableReferenceNode) ex1.get(),
+                            Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.MODULO))));
+                }
+                else{
+                    throw new RuntimeException("no expression found after %= at line " +tokens.peek(0).get().linenum);
+                }
+            }
+            else if(tokens.matchAndRemove(Token.TokenType.CARROT_EQUALS).isPresent()){
+                acceptSeperators();
+                ex2 = parseOperation();
+                if(ex2.isPresent()){
+                    ex1 = Optional.of(new AssignmentNode((VariableReferenceNode) ex1.get(),
+                            Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.EXPONENT))));
+                }
+                else{
+                    throw new RuntimeException("no expression found after ^= at line " +tokens.peek(0).get().linenum);
+                }
             }
         }
+        return ex1;
+    }
 
+    private Optional<Node> parseTernary(){
+        Optional<Node> ex1 = parseAnd();
+        Optional<Node> truthexp, falseexp;
+        if(ex1.isPresent()){
+            if(tokens.matchAndRemove(Token.TokenType.QUESTION).isPresent()){
+                acceptSeperators();
+                truthexp = parseOperation();
+                if(!truthexp.isPresent()){
+                    throw new RuntimeException("invalid expression found at line " + tokens.peek(0).get().linenum);
+                }
+                if(!tokens.matchAndRemove(Token.TokenType.COLON).isPresent()){
+                    throw new RuntimeException("no ':' found in ternary expression at line " + tokens.peek(0).get().linenum);
+                }
+                falseexp = parseOperation();
+                if(!falseexp.isPresent()){
+                    throw new RuntimeException("invalid expression found at line " + tokens.peek(0).get().linenum);
+                }
+                ex1 = Optional.of(new TernaryNode(ex1.get(), truthexp.get(), falseexp.get()));
+            }
+        }
+        else{
+            throw new RuntimeException("invalid expression found at line " + tokens.peek(0).get().linenum);
+        }
+
+        return ex1;
+    }
+
+    private Optional<Node> parseAnd(){
+        Optional<Node> ex1 = parseOr();
+        Optional<Node> ex2;
+        if(ex1.isPresent()){
+            if(tokens.matchAndRemove(Token.TokenType.AND_OP).isPresent()){
+                acceptSeperators();
+                ex2 = parseBoolean();
+                if(!ex2.isPresent()){
+                    throw new RuntimeException("invalid expression found at line " + tokens.peek(0).get().linenum);
+                }
+                ex1 = Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.AND));
+            }
+        }
+        else{
+            throw new RuntimeException("invalid expression found at line " + tokens.peek(0).get().linenum);
+        }
+        return ex1;
+    }
+
+    private Optional<Node> parseOr(){
+        Optional<Node> ex1 = parseArrayMembership();
+        Optional<Node> ex2;
+        if(ex1.isPresent()){
+            if(tokens.matchAndRemove(Token.TokenType.OR_OP).isPresent()){
+                acceptSeperators();
+                ex2 = parseBoolean();
+                if(!ex2.isPresent()){
+                    throw new RuntimeException("invaild expression found at line " + tokens.peek(0).get().linenum);
+                }
+                ex1 = Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.OR));
+            }
+        }
+        else{
+            throw new RuntimeException("invalid expression at line " + tokens.peek(0).get().linenum);
+        }
+        return ex1;
+    }
+
+    private Optional<Node> parseArrayMembership(){
+        Optional<Node> ex1 = parseMatch();
+        if(ex1.isPresent()){
+            if(tokens.matchAndRemove(Token.TokenType.IN).isPresent()) {
+                acceptSeperators();
+                if (ex1.get() instanceof OperationNode &&
+                        ((OperationNode) ex1.get()).getOpType() != OperationNode.operationType.NOT &&
+                        ((OperationNode) ex1.get()).getOpType() != OperationNode.operationType.CONCATENATION) {
+                    Optional<Node> arrayVar = parseLValue();
+                    if(arrayVar.isPresent()){
+                        ex1 = Optional.of(new OperationNode(ex1.get(), arrayVar.get(), OperationNode.operationType.IN));
+                    }
+                    else{
+                        throw new RuntimeException("no array variable found on right side of array membership expression");
+                    }
+                }
+            }
+        }
+        else{
+            throw new RuntimeException("invalid expression found at line " + tokens.peek(0).get().linenum);
+        }
+        return ex1;
+    }
+    
+    private Optional<Node> parseMatch(){
+        Optional<Node> ex1 = parseBoolean();
+        Optional<Node> ex2;
+        if(ex1.isPresent()){
+            if(tokens.matchAndRemove(Token.TokenType.MATCH).isPresent()){
+                acceptSeperators();
+                ex2 = parseOperation();
+                if(!ex2.isPresent()){
+                    throw new RuntimeException("invalid expression found on right side of ERE match operation");
+                }
+                ex1 = Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.MATCH));
+            }
+            else if(tokens.matchAndRemove(Token.TokenType.NO_MATCH).isPresent()){
+                acceptSeperators();
+                ex2 = parseOperation();
+                if(!ex2.isPresent()){
+                    throw new RuntimeException("invalid expression found on right side of ERE nonmatch operation");
+                }
+                ex1 = Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.NOTMATCH));
+            }
+        }
+        else{
+            throw new RuntimeException("invalid expression found at line " + tokens.peek(0).get().linenum);
+        }
+        return ex1;
+    }
+
+    private Optional<Node> parseBoolean(){
+        Optional<Node> ex1 = parseConcatination();
+        Optional<Node> ex2;
+        if(!ex1.isPresent()){
+            throw new RuntimeException("no valid expression found at line " + tokens.peek(0).get().linenum);
+        }
+
+        if(tokens.matchAndRemove(Token.TokenType.LESSTHAN).isPresent()){
+            acceptSeperators();
+            ex2 = parseConcatination();
+            if(ex2.isPresent()){
+                ex1 = Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.LT));
+            }
+            else {
+                throw new RuntimeException("no/invalid expression found after less than sign at line " +tokens.peek(0).get().linenum);
+            }
+        }
+        else if(tokens.matchAndRemove(Token.TokenType.LESS_THAN_EQUALTO).isPresent()){
+            acceptSeperators();
+            ex2 = parseConcatination();
+            if(ex2.isPresent()){
+                ex1 = Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.LE));
+            }
+            else{
+                throw new RuntimeException("no/invalid expression found after less than or equal to sign at line " + tokens.peek(0).get().linenum);
+            }
+        }
+        else if(tokens.matchAndRemove(Token.TokenType.NOT_EQUALS).isPresent()){
+            acceptSeperators();
+            ex2 = parseConcatination();
+            if(ex2.isPresent()){
+                ex1 = Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.NE));
+            }
+            else{
+                throw new RuntimeException("no/invalid expression found after not equals sign at line " + tokens.peek(0).get().linenum);
+            }
+        }
+        else if(tokens.matchAndRemove(Token.TokenType.DOUBLE_EQUALS).isPresent()){
+            acceptSeperators();
+            ex2 = parseConcatination();
+            if(ex2.isPresent()){
+                ex1 = Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.EQ));
+            }
+            else{
+                throw new RuntimeException("no/invalid expression found after double equals at line " + tokens.peek(0).get().linenum);
+            }
+        }
+        else if(tokens.matchAndRemove(Token.TokenType.GREATERTHAN).isPresent()){
+            acceptSeperators();
+            ex2 = parseConcatination();
+            if(ex2.isPresent()){
+                ex1 = Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.GT));
+            }
+            else{
+                throw new RuntimeException("no/invalid expression found after greater than at line " +tokens.peek(0).get().linenum);
+            }
+        }
+        else if(tokens.matchAndRemove(Token.TokenType.GREATER_THAN_EQUALTO).isPresent()){
+            acceptSeperators();
+            ex2 = parseConcatination();
+            if(ex2.isPresent()){
+                ex1 = Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.GE));
+            }
+            else{
+                throw new RuntimeException("no/invalid expression found after greater than or equal to at line " + tokens.peek(0).get().linenum);
+            }
+        }
+        return ex1;
     }
 
 
+    private Optional<Node> parseConcatination(){
+        Optional<Node> ex1 = expression();
+        Optional<Node> ex2;
+        if(ex1.isPresent()){
+            if(ex1.get() instanceof ConstantNode && (tokens.moreTokens() && tokens.peek(0).get().type == Token.TokenType.STRINGLITERAL)){
+                ex1 = Optional.of(new OperationNode(ex1.get(), parseBottomLevel().get(), OperationNode.operationType.CONCATENATION));
+            }
+        }
+        return ex1;
+    }
 
+    private Optional<Node> expression(){
+        Optional<Node> term1 = term();
+        Optional<Node> term2;
+
+        while(tokens.moreTokens() && (tokens.peek(0).get().type == Token.TokenType.PLUS || tokens.peek(0).get().type == Token.TokenType.MINUS)){
+            if(tokens.matchAndRemove(Token.TokenType.PLUS).isPresent()){
+                acceptSeperators();
+                term2 = term();
+                if(!term2.isPresent()){
+                    throw new RuntimeException("invalid expression at line " + tokens.peek(0).get().linenum);
+                }
+                term1 = Optional.of(new OperationNode(term1.get(), term2.get(), OperationNode.operationType.ADD));
+            }
+            else{
+                tokens.matchAndRemove(Token.TokenType.MINUS);
+                acceptSeperators();
+                term2 = term();
+                if(!term2.isPresent()){
+                    throw new RuntimeException("invalid expression at line " + tokens.peek(0).get().linenum);
+                }
+                term1 = Optional.of(new OperationNode(term1.get(), term2.get(), OperationNode.operationType.SUBTRACT));
+            }
+        }
+        return term1;
+    }
+
+    private Optional<Node> term(){
+        Optional<Node> factor1 = factor();
+        Optional<Node> factor2;
+        while(tokens.moreTokens() && (tokens.peek(0).get().type == Token.TokenType.STAR ||
+                tokens.peek(0).get().type == Token.TokenType.SLASH ||
+                tokens.peek(0).get().type == Token.TokenType.PERCENT)){
+
+            if(tokens.matchAndRemove(Token.TokenType.STAR).isPresent()){
+                acceptSeperators();
+                factor2 = factor();
+                if(!factor2.isPresent()){
+                    throw new RuntimeException("invalid expression found at line " +tokens.peek(0).get().linenum);
+                }
+                factor1 = Optional.of(new OperationNode(factor1.get(), factor2.get(), OperationNode.operationType.MULTIPLY));
+            }
+            else if(tokens.matchAndRemove(Token.TokenType.SLASH).isPresent()){
+                acceptSeperators();
+                factor2 = factor();
+                if(!factor2.isPresent()){
+                    throw new RuntimeException("invalid expression found at line " +tokens.peek(0).get().linenum);
+                }
+                factor1 = Optional.of(new OperationNode(factor1.get(), factor2.get(), OperationNode.operationType.DIVIDE));
+            }
+            else{
+                tokens.matchAndRemove(Token.TokenType.PERCENT);
+                acceptSeperators();
+                factor2 = factor();
+                if(!factor2.isPresent()){
+                    throw new RuntimeException("invalid expression at line " + tokens.peek(0).get().linenum);
+                }
+                factor1 = Optional.of(new OperationNode(factor1.get(), factor2.get(), OperationNode.operationType.MODULO));
+            }
+        }
+        return factor1;
+    }
+
+
+    private Optional<Node> factor(){
+        return parseExponents();
+    }
+
+    private Optional<Node> parseExponents(){
+        Optional<Node> ex1 = parsePostIncDec();
+        Optional<Node> ex2;
+        if(ex1.isPresent()){
+            if(tokens.matchAndRemove(Token.TokenType.CARROT).isPresent()){
+                acceptSeperators();
+                if(ex1.get() instanceof OperationNode && ((OperationNode)ex1.get()).getOpType() == OperationNode.operationType.NOT){
+                    throw new RuntimeException("cannot perform exponent operation on negated expression");
+                }
+                ex2 = expression();
+                if(!ex2.isPresent()){
+                    throw new RuntimeException("invalid expression at line " + tokens.peek(0).get().linenum);
+                }
+                ex1 = Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.EXPONENT));
+            }
+
+        }
+        else{
+            throw new RuntimeException("invalid expression at line " + tokens.peek(0).get().linenum);
+        }
+        return ex1;
+    }
+
+    private Optional<Node> parsePostIncDec(){
+        Optional<Node> ex1 = parseBottomLevel();
+
+        if(ex1.isPresent()){
+            if(ex1.get() instanceof VariableReferenceNode){
+                if(tokens.matchAndRemove(Token.TokenType.INCREMENT).isPresent()){
+                    acceptSeperators();
+                    ex1 = Optional.of(new OperationNode(ex1.get(), OperationNode.operationType.POSTINC));
+                }
+                else if(tokens.matchAndRemove(Token.TokenType.DECREMENT).isPresent()){
+                    acceptSeperators();
+                    ex1 = Optional.of(new OperationNode(ex1.get(), OperationNode.operationType.POSTDEC));
+                }
+            }
+        }
+        return ex1;
+    }
     private Optional<Node> parseBottomLevel(){
         Optional<Node> result;
         switch (tokens.peek(0).get().type){
@@ -121,14 +496,17 @@ public class Parser {
                 return Optional.of(new PatternNode(tokens.matchAndRemove(Token.TokenType.PATTERN).get().value));
             case OPEN_PAREN:
                 tokens.matchAndRemove(Token.TokenType.OPEN_PAREN);
+                acceptSeperators();
                 result = parseOperation();
                 if(tokens.peek(0).get().type != Token.TokenType.CLOSE_PAREN){
                     throw new RuntimeException("no close parenthes found at expression at line " + tokens.peek(0).get().linenum );
                 }
                 tokens.matchAndRemove(Token.TokenType.CLOSE_PAREN);
+                acceptSeperators();
                 return result;
             case NOT:
                 tokens.matchAndRemove(Token.TokenType.NOT);
+                acceptSeperators();
                 result = parseOperation();
                 if(result.isPresent()){
                     return Optional.of(new OperationNode(result.get(), OperationNode.operationType.NOT));
@@ -136,6 +514,7 @@ public class Parser {
                 throw new RuntimeException("could not parse not expression at line " + tokens.peek(0).get().linenum);
             case MINUS:
                 tokens.matchAndRemove(Token.TokenType.MINUS);
+                acceptSeperators();
                 result = parseOperation();
                 if(result.isPresent()){
                     return Optional.of(new OperationNode(result.get(), OperationNode.operationType.UNARYNEG));
@@ -143,6 +522,7 @@ public class Parser {
                 throw new RuntimeException("could not parse unary negation expression at line " + tokens.peek(0).get().linenum);
             case PLUS:
                 tokens.matchAndRemove(Token.TokenType.PLUS);
+                acceptSeperators();
                 result = parseOperation();
                 if(result.isPresent()){
                     return Optional.of(new OperationNode(result.get(), OperationNode.operationType.UNARYPOS));
@@ -150,6 +530,7 @@ public class Parser {
                 throw new RuntimeException("could not parse Unary addition expression at line " + tokens.peek(0).get().linenum);
             case INCREMENT:
                 tokens.matchAndRemove(Token.TokenType.INCREMENT);
+                acceptSeperators();
                 result = parseOperation();
                 if(result.isPresent()){
                     return Optional.of(new OperationNode(result.get(), OperationNode.operationType.PREINC));
@@ -157,6 +538,7 @@ public class Parser {
                 throw new RuntimeException("could not parse preincrement expression at line " + tokens.peek(0).get().linenum);
             case DECREMENT:
                 tokens.matchAndRemove(Token.TokenType.DECREMENT);
+                acceptSeperators();
                 result = parseOperation();
                 if(result.isPresent()){
                     return Optional.of(new OperationNode(result.get(), OperationNode.operationType.PREDEC));
@@ -169,18 +551,20 @@ public class Parser {
     }
 
     private Optional<Node> parseLValue(){
-        if(tokens.peek(0).get().type == Token.TokenType.DOLLAR){
-            tokens.matchAndRemove(Token.TokenType.DOLLAR);
+        if(tokens.matchAndRemove(Token.TokenType.DOLLAR).isPresent()){
+            acceptSeperators();
             return Optional.of(new OperationNode(parseBottomLevel().get(), OperationNode.operationType.DOLLAR));
         }
         else if(tokens.peek(0).get().type == Token.TokenType.WORD){
             String varName = tokens.matchAndRemove(Token.TokenType.WORD).get().value;
-            if(tokens.moreTokens() && tokens.peek(0).get().type == Token.TokenType.OPEN_SQAURE){
-                tokens.matchAndRemove(Token.TokenType.OPEN_SQAURE);
+            acceptSeperators();
+            if(tokens.matchAndRemove(Token.TokenType.OPEN_SQAURE).isPresent()){
+                acceptSeperators();
                 Optional<Node> expression = parseOperation();
-                if(tokens.peek(0).get().type != Token.TokenType.CLOSE_SQUARE){
+                if(!tokens.matchAndRemove(Token.TokenType.CLOSE_SQUARE).isPresent()){
                     throw new RuntimeException("failed to close array index brackets at line " + tokens.peek(0).get().linenum);
                 }
+                acceptSeperators();
                 return Optional.of(new VariableReferenceNode(varName, expression));
             }
             else{

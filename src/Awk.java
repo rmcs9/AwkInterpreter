@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Optional;
 
 public class Awk {
     public static void main(String[] args) throws IOException {
@@ -16,7 +17,11 @@ public class Awk {
         }
 
         Parser parser = new Parser(lex.lexedTokens);
-        ProgramNode newProgram = parser.parse();
+        Optional<Node> test = parser.parseOperation();
+
+        if(test.isPresent()){
+            System.out.println("success");
+        }
     }
 
 

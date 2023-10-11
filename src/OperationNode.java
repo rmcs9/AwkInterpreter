@@ -19,6 +19,10 @@ public class OperationNode extends Node{
 
     private operationType opType;
 
+    public operationType getOpType(){
+        return opType;
+    }
+
     public enum operationType{
         EQ, NE, LT, LE, GT, GE, AND, OR, NOT, MATCH, NOTMATCH, DOLLAR,
         PREINC, POSTINC, PREDEC, POSTDEC, UNARYPOS, UNARYNEG, IN,
@@ -28,5 +32,24 @@ public class OperationNode extends Node{
     @Override
     public String toString() {
         return null;
+    }
+
+    public boolean isBooleanExpression(){
+        switch(opType){
+            case EQ:
+            case NE:
+            case LT:
+            case LE:
+            case GT:
+            case GE:
+            case MATCH:
+            case NOTMATCH:
+            case IN:
+            case AND:
+            case OR:
+                return true;
+            default:
+                return false;
+        }
     }
 }

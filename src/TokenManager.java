@@ -10,7 +10,10 @@ public class TokenManager {
     }
 
     public Optional<Token> peek(int i) {
-       return Optional.of(tokens.get(i));
+        if(this.moreTokens()){
+            return Optional.of(tokens.get(i));
+        }
+        return Optional.empty();
     }
 
     public boolean moreTokens(){
@@ -18,6 +21,9 @@ public class TokenManager {
     }
 
     public Optional<Token> matchAndRemove(Token.TokenType type){
+        if(!this.moreTokens()){
+            return Optional.empty();
+        }
         if(type == tokens.get(0).type){
             return Optional.of(tokens.remove());
         }
