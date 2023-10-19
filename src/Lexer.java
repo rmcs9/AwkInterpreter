@@ -17,6 +17,7 @@ public class Lexer {
         knownwords.put("break", Token.TokenType.BREAK);
         knownwords.put("continue", Token.TokenType.CONTINUE);
         knownwords.put("else", Token.TokenType.ELSE);
+        knownwords.put("return", Token.TokenType.RETURN);
         knownwords.put("BEGIN", Token.TokenType.BEGIN);
         knownwords.put("END", Token.TokenType.END);
         knownwords.put("print", Token.TokenType.PRINT);

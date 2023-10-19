@@ -8,8 +8,6 @@ public class FunctionNode extends Node{
         parameters = param;
     }
 
-    //TODO: DELETE / OVERWRITE HERE NEXT PARSER
-    //I overloaded constructor purely for the purposes of parser 1
     public FunctionNode(String n, LinkedList<String> param){
         name = n;
         parameters = param;

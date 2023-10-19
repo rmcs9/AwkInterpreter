@@ -17,38 +17,11 @@ public class Awk {
         }
 
         Parser parser = new Parser(lex.lexedTokens);
-        Optional<Node> test = parser.parseOperation();
+        //Optional<StatementNode> test = parser.parseStatement();
+        //Optional<Node> test = parser.parseOperation();
 
-        if(test.isPresent()){
-            System.out.println("success");
-        }
+        ProgramNode program = parser.parse();
+        System.out.println("success");
+
     }
-
-
-//    403 HOMEWORK 2
-//
-//    public static int averagesSum(int[] arr) {
-//        int averages = 0;
-//        for (int i = 1; i < arr.length - 1; i++) {
-//            if ((arr[i - 1] + arr[i + 1]) / 2 == arr[i]) {
-//                averages++;
-//            }
-//        }
-//        return averages;
-//    }
-//
-//    public static int averageSumRecursive(int[] A, int s, int e) {
-//        int middle;
-//        int averages = 0;
-//        if (s < e) {
-//            middle = (s + e) / 2;
-//            averages += averageSumRecursive(A, s, middle);
-//            averages += averageSumRecursive(A, middle + 1, e);
-//        } else {
-//            if ((A[s - 1] + A[s + 1]) / 2 == A[s]) {
-//                averages++;
-//            }
-//        }
-//        return averages;
-//    }
 }

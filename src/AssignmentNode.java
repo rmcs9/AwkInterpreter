@@ -1,6 +1,6 @@
 import java.util.Optional;
 
-public class AssignmentNode extends Node{
+public class AssignmentNode extends StatementNode{
 
     public AssignmentNode(VariableReferenceNode var, Optional<Node> value){
         leftside = var;

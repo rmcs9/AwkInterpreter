@@ -1,6 +1,6 @@
 import java.util.Optional;
 
-public class OperationNode extends Node{
+public class OperationNode extends StatementNode{
 
     public OperationNode(Node l, operationType op){
         left = l;
@@ -29,27 +29,13 @@ public class OperationNode extends Node{
         EXPONENT, ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, CONCATENATION
     }
 
+    public Optional<Node> getRight(){
+        return right;
+    }
+
     @Override
     public String toString() {
         return null;
     }
 
-    public boolean isBooleanExpression(){
-        switch(opType){
-            case EQ:
-            case NE:
-            case LT:
-            case LE:
-            case GT:
-            case GE:
-            case MATCH:
-            case NOTMATCH:
-            case IN:
-            case AND:
-            case OR:
-                return true;
-            default:
-                return false;
-        }
-    }
 }
