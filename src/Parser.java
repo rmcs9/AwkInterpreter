@@ -200,7 +200,6 @@ public class Parser {
         if (!forExp1.isPresent()) {
             throw new RuntimeException("failed to parse expression in for loop condition");
         }
-        //TODO issues here with finding a foreach loop
         if (forExp1.get() instanceof OperationNode) {
             if (((OperationNode) forExp1.get()).getOpType() == OperationNode.operationType.IN) {
                 if (!tokens.matchAndRemove(Token.TokenType.CLOSE_PAREN).isPresent()) {
@@ -750,41 +749,31 @@ public class Parser {
                 }
                 throw new RuntimeException("could not parse predecrement expression at line " + tokens.peek(0).get().linenum);
             default:
-                if (tokens.peek(0).get().type == Token.TokenType.WORD) {
-                    try {
-                        if (tokens.peek(1).get().type == Token.TokenType.OPEN_PAREN) {
-                            return parseFunctionCall();
-                        }
-                        return parseLValue();
-                    } catch (Exception e) {
-                        return parseLValue();
-                    }
-                }
-                else if(tokens.peek(0).get().type == Token.TokenType.DOLLAR){
-                    return parseLValue();
-                }
-                else {
-                    throw new RuntimeException("failed to parse expression at the bottom level");
-                }
+                return parseFunctionCall();
         }
 
     }
 
     private Optional<Node> parseFunctionCall() {
         Optional<Node> funcName = parseLValue();
-        Optional<Node> currentParam;
-        LinkedList<Node> params = new LinkedList<>();
-
-        tokens.matchAndRemove(Token.TokenType.OPEN_PAREN);
-        while (!tokens.matchAndRemove(Token.TokenType.CLOSE_PAREN).isPresent()) {
-            currentParam = parseOperation();
-            if (!currentParam.isPresent()) {
-                throw new RuntimeException("failed to parse parameter being passed into function call");
-            }
-            params.add(currentParam.get());
-            tokens.matchAndRemove(Token.TokenType.COMMA);
+        if(!funcName.isPresent()){
+            throw new RuntimeException("unable to parse word at bottom level");
         }
-        return Optional.of(new FunctionCallNode(funcName.get(), params));
+        if(tokens.matchAndRemove(Token.TokenType.OPEN_PAREN).isPresent()){
+            Optional<Node> currentParam;
+            LinkedList<Node> params = new LinkedList<>();
+
+            while (!tokens.matchAndRemove(Token.TokenType.CLOSE_PAREN).isPresent()) {
+                currentParam = parseOperation();
+                if (!currentParam.isPresent()) {
+                    throw new RuntimeException("failed to parse parameter being passed into function call");
+                }
+                params.add(currentParam.get());
+                tokens.matchAndRemove(Token.TokenType.COMMA);
+            }
+            return Optional.of(new FunctionCallNode(funcName.get(), params));
+        }
+        return funcName;
     }
 
     private Optional<Node> parseLValue() {
