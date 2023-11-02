@@ -13,7 +13,15 @@ public class FunctionNode extends Node{
         parameters = param;
     }
 
+    public FunctionNode(){
+
+    }
+
     private String name;
+
+    public String getName(){
+        return name;
+    }
 
     private LinkedList<StatementNode> statements;
 

@@ -15,6 +15,10 @@ public class ProgramNode extends Node{
         functions.add(func);
     }
 
+    public LinkedList<FunctionNode> getFunctions(){
+        return functions;
+    }
+
     private LinkedList<BlockNode> startBlocks;
 
     public void addStartBlock(BlockNode block){

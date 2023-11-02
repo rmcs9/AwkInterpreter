@@ -9,6 +9,14 @@ public class VariableReferenceNode extends Node{
     private String variableName;
 
     private Optional<Node> arrayIndex;
+
+    public String getVariableName(){
+        return variableName;
+    }
+
+    public Optional<Node> getArrayIndex(){
+        return arrayIndex;
+    }
     @Override
     public String toString() {
         return null;

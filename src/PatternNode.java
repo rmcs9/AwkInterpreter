@@ -6,6 +6,10 @@ public class PatternNode extends Node{
 
     private String value;
 
+    public String getValue(){
+        return value;
+    }
+
     public String toString(){
         return "PatternNode";
     }
