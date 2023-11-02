@@ -9,6 +9,18 @@ public class TernaryNode extends Node{
     private Node condition;
     private Node truthExpression;
     private Node falseExpression;
+
+    public Node getCondition(){
+        return condition;
+    }
+
+    public Node getTruthExpression(){
+        return truthExpression;
+    }
+
+    public Node getFalseExpression(){
+        return falseExpression;
+    }
     @Override
     public String toString(){
         return null;

@@ -6,6 +6,10 @@ public class ConstantNode extends Node{
 
     private String value;
 
+    public String getValue(){
+        return value;
+    }
+
     @Override
     public String toString() {
         return "constant Node";

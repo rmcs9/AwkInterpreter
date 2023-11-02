@@ -29,6 +29,43 @@ public class OperationNode extends StatementNode{
         EXPONENT, ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, CONCATENATION
     }
 
+    public boolean isMath(){
+        return opType == operationType.EXPONENT
+                || opType == operationType.ADD
+                || opType == operationType.SUBTRACT
+                || opType == operationType.MULTIPLY
+                || opType == operationType.DIVIDE
+                || opType == operationType.MODULO;
+    }
+
+    public boolean isCompare(){
+        return opType == operationType.EQ
+                || opType == operationType.NE
+                || opType == operationType.LT
+                || opType ==operationType.LE
+                || opType ==operationType.GT
+                || opType ==operationType.GE;
+    }
+
+    public boolean isBoolean(){
+        return opType == operationType.AND || opType == operationType.OR;
+    }
+    public boolean isMatch(){
+        return opType == operationType.MATCH || opType == operationType.NOTMATCH;
+    }
+
+    public boolean isIncDecUnary(){
+        return opType == operationType.PREDEC
+                || opType == operationType.POSTDEC
+                || opType == operationType.PREINC
+                || opType == operationType.POSTINC
+                || opType == operationType.UNARYPOS
+                || opType == operationType.UNARYNEG;
+    }
+    public Node getLeft(){
+        return left;
+    }
+
     public Optional<Node> getRight(){
         return right;
     }

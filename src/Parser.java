@@ -296,7 +296,7 @@ public class Parser {
                 }
                 ex2 = parseOperation();
                 if (ex2.isPresent()) {
-                    ex1 = Optional.of(new AssignmentNode((VariableReferenceNode) ex1.get(), ex2));
+                    ex1 = Optional.of(new AssignmentNode(ex1.get(), ex2));
                 } else {
                     throw new RuntimeException("no expression found after = at line " + tokens.peek(0).get().linenum);
                 }
@@ -306,7 +306,7 @@ public class Parser {
                 }
                 ex2 = parseOperation();
                 if (ex2.isPresent()) {
-                    ex1 = Optional.of(new AssignmentNode((VariableReferenceNode) ex1.get(),
+                    ex1 = Optional.of(new AssignmentNode(ex1.get(),
                             Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.ADD))));
                 } else {
                     throw new RuntimeException("no expression found after += at line " + tokens.peek(0).get().linenum);
@@ -317,7 +317,7 @@ public class Parser {
                 }
                 ex2 = parseOperation();
                 if (ex2.isPresent()) {
-                    ex1 = Optional.of(new AssignmentNode((VariableReferenceNode) ex1.get(),
+                    ex1 = Optional.of(new AssignmentNode(ex1.get(),
                             Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.SUBTRACT))));
                 } else {
                     throw new RuntimeException("no expression found after -= at line " + tokens.peek(0).get().linenum);
@@ -328,7 +328,7 @@ public class Parser {
                 }
                 ex2 = parseOperation();
                 if (ex2.isPresent()) {
-                    ex1 = Optional.of(new AssignmentNode((VariableReferenceNode) ex1.get(),
+                    ex1 = Optional.of(new AssignmentNode(ex1.get(),
                             Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.DIVIDE))));
                 } else {
                     throw new RuntimeException("no expression found after /= at line " + tokens.peek(0).get().linenum);
@@ -339,7 +339,7 @@ public class Parser {
                 }
                 ex2 = parseOperation();
                 if (ex2.isPresent()) {
-                    ex1 = Optional.of(new AssignmentNode((VariableReferenceNode) ex1.get(),
+                    ex1 = Optional.of(new AssignmentNode(ex1.get(),
                             Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.MULTIPLY))));
                 } else {
                     throw new RuntimeException("no expression found after *= at line " + tokens.peek(0).get().linenum);
@@ -350,7 +350,7 @@ public class Parser {
                 }
                 ex2 = parseOperation();
                 if (ex2.isPresent()) {
-                    ex1 = Optional.of(new AssignmentNode((VariableReferenceNode) ex1.get(),
+                    ex1 = Optional.of(new AssignmentNode(ex1.get(),
                             Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.MODULO))));
                 } else {
                     throw new RuntimeException("no expression found after %= at line " + tokens.peek(0).get().linenum);
@@ -361,7 +361,7 @@ public class Parser {
                 }
                 ex2 = parseOperation();
                 if (ex2.isPresent()) {
-                    ex1 = Optional.of(new AssignmentNode((VariableReferenceNode) ex1.get(),
+                    ex1 = Optional.of(new AssignmentNode(ex1.get(),
                             Optional.of(new OperationNode(ex1.get(), ex2.get(), OperationNode.operationType.EXPONENT))));
                 } else {
                     throw new RuntimeException("no expression found after ^= at line " + tokens.peek(0).get().linenum);

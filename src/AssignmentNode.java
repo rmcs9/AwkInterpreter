@@ -2,14 +2,22 @@ import java.util.Optional;
 
 public class AssignmentNode extends StatementNode{
 
-    public AssignmentNode(VariableReferenceNode var, Optional<Node> value){
+    public AssignmentNode(Node var, Optional<Node> value){
         leftside = var;
         rightside = value;
     }
 
-    private VariableReferenceNode leftside;
+    private Node leftside;
 
     private Optional<Node> rightside;
+
+    public Node getLeftside(){
+        return leftside;
+    }
+
+    public Optional<Node> getRightSide(){
+        return rightside;
+    }
 
     @Override
     public String toString() {
