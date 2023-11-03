@@ -272,6 +272,14 @@ public class Interpreter {
                             locals.get().put(var.getVariableName(), new IDT("0"));
                         }
                     }
+                    else if(!globals.containsKey(var.getVariableName())){
+                        if(var.getArrayIndex().isPresent()){
+                            globals.put(var.getVariableName(), new IADT());
+                        }
+                        else{
+                            globals.put(var.getVariableName(), new IDT("0"));
+                        }
+                    }
                 }
                 else{
                     if(!globals.containsKey(var.getVariableName())){
@@ -313,7 +321,7 @@ public class Interpreter {
                 terCond = Float.parseFloat(bool.getData()) != 0;
             }
             catch(NumberFormatException e){
-                terCond = false;
+                terCond = !bool.getData().isEmpty();
             }
             if(terCond){
                 return getIDT(((TernaryNode) current).getTruthExpression(), locals);
@@ -500,6 +508,14 @@ public class Interpreter {
                                     locals.get().put(var.getVariableName(), new IDT("0"));
                                 }
                             }
+                            else if(!globals.containsKey(var.getVariableName())){
+                                if(var.getArrayIndex().isPresent()){
+                                    globals.put(var.getVariableName(), new IADT());
+                                }
+                                else{
+                                    globals.put(var.getVariableName(), new IDT("0"));
+                                }
+                            }
                         }
                         else{
                             if(!globals.containsKey(var.getVariableName())){
@@ -529,7 +545,8 @@ public class Interpreter {
                             return left;
                         }
                         catch(NumberFormatException e){
-                            throw new RuntimeException("attempting to apply predecrement operator to a variable that is not numerical");
+                            left.setData("-1");
+                            return left;
                         }
                     case POSTDEC:
                         if(!(currentOP.getLeft() instanceof  VariableReferenceNode)){
@@ -543,7 +560,9 @@ public class Interpreter {
                             return leftcopy;
                         }
                         catch (NumberFormatException e){
-                            throw new RuntimeException("attempting to apply postdecrement operator to a variable that is not numerical");
+                            IDT leftcopy = new IDT(left.getData());
+                            left.setData("-1");
+                            return leftcopy;
                         }
                     case PREINC:
                         if(!(currentOP.getLeft() instanceof  VariableReferenceNode)){
@@ -555,7 +574,8 @@ public class Interpreter {
                            return left;
                         }
                         catch (NumberFormatException e){
-                            throw new RuntimeException("attempting to apply preincrement operator to a variable that is not numerical");
+                            left.setData("1");
+                            return left;
                         }
                     case POSTINC:
                         if(!(currentOP.getLeft() instanceof  VariableReferenceNode)){
@@ -569,7 +589,9 @@ public class Interpreter {
                             return leftcopy;
                         }
                         catch (NumberFormatException e){
-                            throw new RuntimeException("attempting to apply postincrement operator to a variable that is not numerical");
+                            IDT leftcopy = new IDT(left.getData());
+                            left.setData("1");
+                            return leftcopy;
                         }
                     case UNARYPOS:
                         return left;
