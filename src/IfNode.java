@@ -21,4 +21,16 @@ public class IfNode extends StatementNode{
     private Optional<IfNode> next;
 
 
+    public Optional<Node> getCondition(){
+        return condition;
+    }
+
+    public BlockNode getStatements(){
+        return statements;
+    }
+
+    public Optional<IfNode> getNext(){
+        return next;
+    }
+
 }

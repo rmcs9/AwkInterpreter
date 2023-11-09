@@ -48,7 +48,7 @@ public class OperationNode extends StatementNode{
     }
 
     public boolean isBoolean(){
-        return opType == operationType.AND || opType == operationType.OR;
+        return opType == operationType.AND || opType == operationType.OR || opType == operationType.NOT;
     }
     public boolean isMatch(){
         return opType == operationType.MATCH || opType == operationType.NOTMATCH;

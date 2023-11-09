@@ -3,6 +3,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Optional;
 
 public class Awk {
@@ -25,20 +26,23 @@ public class Awk {
 //
 //        ProgramNode program = parser.parse();
 
+
         //Interpreter tests
         Interpreter interp = new Interpreter(new ProgramNode(), Optional.empty());
         //a[2 + 5]++
         OperationNode incOp = new OperationNode(new VariableReferenceNode("a", Optional.of(new OperationNode(new ConstantNode("2"), new ConstantNode("5"), OperationNode.operationType.ADD))), OperationNode.operationType.POSTINC);
         //a[2]
-        Node left = new VariableReferenceNode("a", Optional.of(new ConstantNode("word")));
+        Node left = new VariableReferenceNode("a", Optional.empty());
+        Node op = new OperationNode(left, new ConstantNode("5"), OperationNode.operationType.ADD);
+        Node as = new AssignmentNode(new VariableReferenceNode("b", Optional.empty()), Optional.of(op));
         //5 > 4 ? 1 : 0
-        Node right = new TernaryNode(new OperationNode(new ConstantNode("5"), new ConstantNode("4"), OperationNode.operationType.GT), new ConstantNode("1"), new ConstantNode("0"));
+        Node right = new TernaryNode(new OperationNode(new ConstantNode("5"), new ConstantNode("4"), OperationNode.operationType.LT), new ConstantNode("1"), new ConstantNode("0"));
         //a[2] = 5 > 4 ? 1 : 0
         AssignmentNode assign = new AssignmentNode(left, Optional.of(right));
 
         HashMap<String, IDT> locals = new HashMap<>();
+        //locals.put("a", new IADT());
         IDT result = interp.getIDT(assign, Optional.empty());
         System.out.println("success");
-
     }
 }

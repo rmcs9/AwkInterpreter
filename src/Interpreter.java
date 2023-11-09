@@ -1,3 +1,4 @@
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -252,45 +253,303 @@ public class Interpreter {
         }, false));
     }
 
+    private ReturnType processStatement(StatementNode statement, Optional<HashMap<String, IDT>> locals){
+        if(statement instanceof  AssignmentNode){
+            return new ReturnType(ReturnType.returnType.NORMAL, getIDT(statement, locals).getData());
+        }
+        else if(statement instanceof BreakNode){
+            return new ReturnType(ReturnType.returnType.BREAK);
+        }
+        else if(statement instanceof ContinueNode){
+            return new ReturnType(ReturnType.returnType.CONTINUE);
+        }
+        else if(statement instanceof DeleteNode){
+            return processDeleteNode((DeleteNode) statement, locals);
+        }
+        else if(statement instanceof DoWhileNode){
+            return processDoWhile((DoWhileNode) statement, locals);
+        }
+        else if(statement instanceof ForNode){
+            return processForNode((ForNode) statement, locals);
+        }
+        else if(statement instanceof ForEachNode){
+            return processForEachNode((ForEachNode) statement, locals);
+        }
+        else if(statement instanceof FunctionCallNode){
+            return new ReturnType(ReturnType.returnType.NORMAL, runFunctionCall((FunctionCallNode) statement, locals));
+        }
+        else if(statement instanceof IfNode){
+            return processIfNode((IfNode) statement, locals);
+        }
+        else if(statement instanceof ReturnNode){
+            if(((ReturnNode) statement).getReturnVal().isPresent()){
+                return new ReturnType(ReturnType.returnType.RETURN, getIDT(((ReturnNode) statement).getReturnVal().get(), locals).getData());
+            }
+            return new ReturnType(ReturnType.returnType.RETURN);
+        }
+        else if(statement instanceof WhileNode){
+            return processWhileNode((WhileNode) statement, locals);
+        }
+        else{
+            throw new RuntimeException("error processing statement");
+        }
+    }
 
+    private ReturnType processDeleteNode(DeleteNode node, Optional<HashMap<String, IDT>> locals){
+        IADT arr;
+        if(locals.isPresent()){
+            if(locals.get().containsKey(node.getArray().getVariableName())){
+                if(locals.get().get(node.getArray().getVariableName()) instanceof IADT){
+                    arr = (IADT) locals.get().get(node.getArray().getVariableName());
+                }
+                else{
+                    throw new RuntimeException("variable (" + node.getArray().getVariableName() + ") referenced in delete expression is not an array");
+                }
+            }
+            else if(globals.containsKey(node.getArray().getVariableName())){
+                if(globals.get(node.getArray().getVariableName()) instanceof IADT){
+                    arr = (IADT) globals.get(node.getArray().getVariableName());
+                }
+                else{
+                    throw new RuntimeException("variable (" + node.getArray().getVariableName() + ") referenced in delete expression is not an array");
+                }
+            }
+            else{
+                throw new RuntimeException("array referenced in delete expression does not exist within the awk program");
+            }
+        }
+        else{
+            if(globals.containsKey(node.getArray().getVariableName())){
+                if(globals.get(node.getArray().getVariableName()) instanceof IADT){
+                    arr = (IADT) globals.get(node.getArray().getVariableName());
+                }
+                else{
+                    throw new RuntimeException("variable (" + node.getArray().getVariableName() + ") referenced in delete expression is not an array");
+                }
+            }
+            else{
+                throw new RuntimeException("array referenced in delete expression does not exist within the awk program");
+            }
+        }
 
+        if(node.getIndexes().isPresent()){
+            arr.getIndexes().forEach((key, val) -> {
+                if(node.getIndexes().get().contains(key)){
+                    arr.getIndexes().remove(key);
+                }
+            });
+        }
+        else{
+            arr.getIndexes().forEach((key, val) -> arr.getIndexes().remove(key));
+        }
+        return new ReturnType(ReturnType.returnType.NORMAL);
+    }
 
+    private ReturnType processDoWhile(DoWhileNode node, Optional<HashMap<String, IDT>> locals){
+        boolean stillTrue = true;
+        ReturnType ret;
+        do{
+            ret = interpretListOfStatements(node.statements.getStatements(), locals);
 
+            IDT condition = getIDT(node.condition.get(), locals);
+            float cond;
+            if(ret.getReturnCause() == ReturnType.returnType.BREAK){
+                break;
+            }
+            else if(ret.getReturnCause() == ReturnType.returnType.RETURN){
+                return ret;
+            }
 
+            try{
+                cond = Float.parseFloat(condition.getData());
+                if(cond == 0){
+                    stillTrue = false;
+                }
+            }
+            catch (NumberFormatException e){
+                stillTrue = !condition.getData().isEmpty();
+            }
+        }while(stillTrue);
+        return ret;
+    }
+
+    private ReturnType processForNode(ForNode node, Optional<HashMap<String, IDT>> locals){
+        ReturnType ret = new ReturnType(ReturnType.returnType.NORMAL);
+        getIDT(node.getInitialization(), locals);
+        IDT cond = getIDT(node.getCondition(), locals);
+        boolean stillTrue = false;
+        float condfloat;
+        try{
+            condfloat = Float.parseFloat(cond.getData());
+            if(condfloat != 0){
+                stillTrue = true;
+            }
+        } catch (NumberFormatException e) {
+            stillTrue = !cond.getData().isEmpty();
+        }
+
+        while(stillTrue){
+            ret = interpretListOfStatements(node.getStatements().getStatements(), locals);
+
+            if(ret.getReturnCause() == ReturnType.returnType.BREAK){
+                break;
+            }
+            else if(ret.getReturnCause() == ReturnType.returnType.RETURN){
+                return ret;
+            }
+            getIDT(node.getOperation(), locals);
+            cond = getIDT(node.getCondition(), locals);
+            try{
+                condfloat = Float.parseFloat(cond.getData());
+                if(condfloat == 0){
+                    stillTrue = false;
+                }
+            }
+            catch (NumberFormatException e){
+                stillTrue = !cond.getData().isEmpty();
+            }
+        }
+        return ret;
+    }
+
+    private ReturnType processForEachNode(ForEachNode node, Optional<HashMap<String, IDT>> locals){
+        if(node.getArrayExp().getOpType() != OperationNode.operationType.IN){
+            throw new RuntimeException("for each loop does not contain a var in array expression");
+        }
+        VariableReferenceNode right;
+        if(node.getArrayExp().getRight().isPresent()){
+            if(node.getArrayExp().getRight().get() instanceof VariableReferenceNode){
+                right = (VariableReferenceNode) node.getArrayExp().getRight().get();
+                if(right.getArrayIndex().isPresent()){
+                    throw new RuntimeException("right side of in expression contains an array index");
+                }
+            }
+            else{
+                throw new RuntimeException("right side of in expression is not a reference to an array");
+            }
+        }
+        else{
+            throw new RuntimeException("right side of in expression is not present");
+        }
+        if(!(node.getArrayExp().getLeft() instanceof VariableReferenceNode)){
+            throw new RuntimeException("left side of arr expression is not a var reference");
+        }
+
+        if(((VariableReferenceNode) node.getArrayExp().getLeft()).getArrayIndex().isPresent()){
+            throw new RuntimeException("left side of index cannot be a reference to an array index");
+        }
+
+        IDT ar = getIDT(node.getArrayExp().getRight().get(),locals);
+        if(ar instanceof IADT){
+            IADT array = (IADT) ar;
+            IDT leftVar = getIDT(node.getArrayExp().getLeft(), locals);
+            if(leftVar instanceof IADT){
+                throw new RuntimeException("left var in for each loop is an array");
+            }
+            LinkedList<String> keySet = new LinkedList<>();
+            array.getIndexes().forEach((key, item) ->{
+                keySet.add(key);
+            });
+            ReturnType ret = new ReturnType(ReturnType.returnType.NORMAL);
+            for(String key: keySet){
+                leftVar.setData(array.getIndexes().get(key).getData());
+
+                ret = interpretListOfStatements(node.getStatements().getStatements(), locals);
+                if(ret.getReturnCause() == ReturnType.returnType.BREAK){
+                    break;
+                }
+                else if(ret.getReturnCause() == ReturnType.returnType.RETURN){
+                    return ret;
+                }
+            }
+            return ret;
+        }
+        else{
+            throw new RuntimeException("could not find array being referenced on the right side of in expression");
+        }
+    }
+
+    private ReturnType processIfNode(IfNode node, Optional<HashMap<String, IDT>> locals){
+        do{
+            boolean condTrue = false;
+            if(node.getCondition().isPresent()){
+                IDT cond = getIDT(node.getCondition().get(), locals);
+                try {
+                    float condFloat = Float.parseFloat(cond.getData());
+                    if(condFloat != 0){
+                        condTrue = true;
+                    }
+                }
+                catch(NumberFormatException e){
+                    if(!cond.getData().isEmpty()){
+                        condTrue = true;
+                    }
+                }
+            }
+            else{
+                condTrue = true;
+            }
+
+            if(condTrue){
+                return interpretListOfStatements(node.getStatements().getStatements(), locals);
+            }
+            else{
+                if(node.getNext().isPresent()){
+                    node = node.getNext().get();
+                }
+                else{
+                    node = null;
+                }
+            }
+        } while(node != null);
+        return new ReturnType(ReturnType.returnType.NORMAL);
+    }
+
+    private ReturnType processWhileNode(WhileNode node, Optional<HashMap<String, IDT>> locals){
+        boolean stillTrue = true;
+        ReturnType ret = new ReturnType(ReturnType.returnType.NORMAL);
+        while(stillTrue){
+            IDT condition = getIDT(node.getCondition().get(), locals);
+            try{
+                float condFloat = Float.parseFloat(condition.getData());
+                if(condFloat == 0){
+                    stillTrue = false;
+                }
+            }
+            catch (NumberFormatException e){
+                stillTrue = !condition.getData().isEmpty();
+            }
+
+            if(!stillTrue){
+                break;
+            }
+
+            ret = interpretListOfStatements(node.getStatements().getStatements(), locals);
+            if(ret.getReturnCause() == ReturnType.returnType.BREAK){
+                break;
+            }
+            else if(ret.getReturnCause() == ReturnType.returnType.RETURN){
+                return ret;
+            }
+        }
+        return ret;
+    }
+
+    private ReturnType interpretListOfStatements(LinkedList<StatementNode> statements, Optional<HashMap<String, IDT>> locals){
+        ReturnType ret = new ReturnType(ReturnType.returnType.NORMAL);
+        for(StatementNode statement : statements){
+            ret = processStatement(statement, locals);
+            if(ret.getReturnCause() != ReturnType.returnType.NORMAL){
+                return ret;
+            }
+        }
+        return ret;
+    }
     public IDT getIDT(Node current, Optional<HashMap<String, IDT>> locals){
         if(current instanceof AssignmentNode){
             AssignmentNode assign = (AssignmentNode) current;
             IDT val = getIDT(assign.getRightSide().get(), locals);
             if(assign.getLeftside() instanceof VariableReferenceNode){
-                VariableReferenceNode var = (VariableReferenceNode) assign.getLeftside();
-                if(locals.isPresent()){
-                    if(!locals.get().containsKey(var.getVariableName())){
-                        if(var.getArrayIndex().isPresent()){
-                            locals.get().put(var.getVariableName(), new IADT());
-                        }
-                        else {
-                            locals.get().put(var.getVariableName(), new IDT("0"));
-                        }
-                    }
-                    else if(!globals.containsKey(var.getVariableName())){
-                        if(var.getArrayIndex().isPresent()){
-                            globals.put(var.getVariableName(), new IADT());
-                        }
-                        else{
-                            globals.put(var.getVariableName(), new IDT("0"));
-                        }
-                    }
-                }
-                else{
-                    if(!globals.containsKey(var.getVariableName())){
-                        if(var.getArrayIndex().isPresent()){
-                            globals.put(var.getVariableName(), new IADT());
-                        }
-                        else {
-                            globals.put(var.getVariableName(), new IDT("0"));
-                        }
-                    }
-                }
                 IDT target = getIDT(assign.getLeftside(), locals);
                 target.setData(val.getData());
                 return val;
@@ -330,6 +589,34 @@ public class Interpreter {
         }
         else if(current instanceof VariableReferenceNode){
             VariableReferenceNode currentVar = (VariableReferenceNode) current;
+            if(locals.isPresent()){
+                if(!locals.get().containsKey(currentVar.getVariableName())){
+                    if(currentVar.getArrayIndex().isPresent()){
+                        locals.get().put(currentVar.getVariableName(), new IADT());
+                    }
+                    else {
+                        locals.get().put(currentVar.getVariableName(), new IDT("0"));
+                    }
+                }
+                else if(!globals.containsKey(currentVar.getVariableName())){
+                    if(currentVar.getArrayIndex().isPresent()){
+                        globals.put(currentVar.getVariableName(), new IADT());
+                    }
+                    else{
+                        globals.put(currentVar.getVariableName(), new IDT("0"));
+                    }
+                }
+            }
+            else{
+                if(!globals.containsKey(currentVar.getVariableName())){
+                    if(currentVar.getArrayIndex().isPresent()){
+                        globals.put(currentVar.getVariableName(), new IADT());
+                    }
+                    else{
+                        globals.put(currentVar.getVariableName(), new IDT("0"));
+                    }
+                }
+            }
             IDT arrayInd = currentVar.getArrayIndex().isPresent() ? getIDT(currentVar.getArrayIndex().get(), locals) : null;
             if(locals.isPresent() && locals.get().containsKey(currentVar.getVariableName())){
                 if(arrayInd != null){
@@ -458,14 +745,12 @@ public class Interpreter {
             }
             else if(currentOP.isBoolean()){
                 IDT left = getIDT(currentOP.getLeft(), locals);
-                IDT right;
+                IDT right = null;
                 if(currentOP.getRight().isPresent()){
                     right = getIDT(currentOP.getRight().get(), locals);
                 }
-                else{
-                    throw new RuntimeException("right side not found in boolean operation");
-                }
-                boolean leftCond, rightCond;
+
+                boolean leftCond, rightCond =false;
 
                 try{
                    leftCond = Float.parseFloat(left.getData()) != 0;
@@ -473,12 +758,12 @@ public class Interpreter {
                 catch(NumberFormatException e){
                     leftCond = false;
                 }
-
-                try{
-                    rightCond = Float.parseFloat(right.getData()) != 0;
-                }
-                catch (NumberFormatException e){
-                    rightCond = false;
+                if(currentOP.getRight().isPresent()) {
+                    try {
+                        rightCond = Float.parseFloat(right.getData()) != 0;
+                    } catch (NumberFormatException e) {
+                        rightCond = false;
+                    }
                 }
 
                 if(currentOP.getOpType() == OperationNode.operationType.AND){
@@ -487,48 +772,25 @@ public class Interpreter {
                     }
                     return new IDT("0");
                 }
-                else{
+                else if(currentOP.getOpType() == OperationNode.operationType.OR){
                     if(leftCond || rightCond){
                         return new IDT("1");
                     }
                     return new IDT("0");
                 }
+                else{
+                    if(leftCond){
+                        return new IDT("0");
+                    }
+                    else{
+                        return new IDT("1");
+                    }
+                }
             }
             else if(currentOP.isIncDecUnary()){
 
                 if(currentOP.getOpType() != OperationNode.operationType.UNARYPOS && currentOP.getOpType() != OperationNode.operationType.UNARYNEG){
-                    if(currentOP.getLeft() instanceof VariableReferenceNode){
-                        VariableReferenceNode var = (VariableReferenceNode) currentOP.getLeft();
-                        if(locals.isPresent()){
-                            if(!locals.get().containsKey(var.getVariableName())){
-                                if(var.getArrayIndex().isPresent()){
-                                    locals.get().put(var.getVariableName(), new IADT());
-                                }
-                                else {
-                                    locals.get().put(var.getVariableName(), new IDT("0"));
-                                }
-                            }
-                            else if(!globals.containsKey(var.getVariableName())){
-                                if(var.getArrayIndex().isPresent()){
-                                    globals.put(var.getVariableName(), new IADT());
-                                }
-                                else{
-                                    globals.put(var.getVariableName(), new IDT("0"));
-                                }
-                            }
-                        }
-                        else{
-                            if(!globals.containsKey(var.getVariableName())){
-                                if(var.getArrayIndex().isPresent()){
-                                    globals.put(var.getVariableName(), new IADT());
-                                }
-                                else{
-                                    globals.put(var.getVariableName(), new IDT("0"));
-                                }
-                            }
-                        }
-                    }
-                    else{
+                    if(!(currentOP.getLeft() instanceof VariableReferenceNode)){
                         throw new RuntimeException("cannot apply inc/dec operation to non var argument");
                     }
                 }
@@ -638,6 +900,9 @@ public class Interpreter {
                 catch(NumberFormatException e){
                     throw new RuntimeException("attempting to access a field reference with a expression or variable that is not numerical");
                 }
+                if(!globals.containsKey("$" + left.getData())){
+                    globals.put("$" + left.getData(), new IDT("0"));
+                }
                 return globals.get("$" + left.getData());
             }
             else if(currentOP.getOpType() == OperationNode.operationType.IN){
@@ -648,23 +913,23 @@ public class Interpreter {
 
                 if(currentOP.getRight().get() instanceof VariableReferenceNode){
                     VariableReferenceNode rightVar = (VariableReferenceNode) currentOP.getRight().get();
-                    HashMap<String, IDT> foundLocOrGlob;
+                    HashMap<String, IDT> LocalsOrGlobals;
                     if(locals.isPresent() && locals.get().containsKey(rightVar.getVariableName())){
-                        foundLocOrGlob = locals.get();
+                        LocalsOrGlobals = locals.get();
                     }
                     else if(globals.containsKey(((VariableReferenceNode) currentOP.getRight().get()).getVariableName())){
-                        foundLocOrGlob = globals;
+                        LocalsOrGlobals = globals;
                     }
                     else{
                         throw new RuntimeException("could not find array variable on right side of in expression");
                     }
 
-                    if(foundLocOrGlob.get(rightVar.getVariableName()) instanceof IADT){
-                        if(((IADT) foundLocOrGlob.get(rightVar.getVariableName())).getIndexes().containsKey(left.getData())){
-                            return ((IADT) foundLocOrGlob.get(rightVar.getVariableName())).getIndexes().get(left.getData());
+                    if(LocalsOrGlobals.get(rightVar.getVariableName()) instanceof IADT){
+                        if(((IADT) LocalsOrGlobals.get(rightVar.getVariableName())).getIndexes().containsKey(left.getData())){
+                            return new IDT("1");
                         }
                         else{
-                            throw new RuntimeException("index " + left.getData() + " not found in " + rightVar.getVariableName());
+                            return new IDT("0");
                         }
                     }
                     else{
