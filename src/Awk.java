@@ -2,47 +2,35 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.Optional;
 
 public class Awk {
     public static void main(String[] args) throws IOException {
-        Path filepath = Paths.get(args[0]);
-        String filestring = new String(Files.readAllBytes(filepath));
+        String filestring;
+        Optional<String> recordPath;
+        if(args.length == 2){
+            Path filepath = Paths.get(args[0]);
+             filestring = new String(Files.readAllBytes(filepath));
+             recordPath = Optional.of(args[1]);
+        }
+        else if(args.length == 1){
+            Path filepath = Paths.get(args[0]);
+            filestring = new String(Files.readAllBytes(filepath));
+            recordPath = Optional.empty();
+        }
+        else{
+            throw new RuntimeException("incorrect arguments passed to awkinterp. expected path to awk program at arg 0, " +
+                    "optional path to record file at arg 1");
+        }
 
-//        Lexer tests
-//        Lexer lex = new Lexer(filestring);
-//        lex.Lex();
-//
-//        for(int i = 0; i < lex.lexedTokens.size(); i++){
-//            System.out.println(lex.lexedTokens.get(i));
-//        }
 
-//        Parser tests
-//        Parser parser = new Parser(lex.lexedTokens);
-//        Optional<StatementNode> test = parser.parseStatement();
-//        Optional<Node> test1 = parser.parseOperation();
-//
-//        ProgramNode program = parser.parse();
+        Lexer lex = new Lexer(filestring);
+        lex.Lex();
 
+        Parser parser = new Parser(lex.lexedTokens);
+        ProgramNode program = parser.parse();
 
-        //Interpreter tests
-        Interpreter interp = new Interpreter(new ProgramNode(), Optional.empty());
-        //a[2 + 5]++
-        OperationNode incOp = new OperationNode(new VariableReferenceNode("a", Optional.of(new OperationNode(new ConstantNode("2"), new ConstantNode("5"), OperationNode.operationType.ADD))), OperationNode.operationType.POSTINC);
-        //a[2]
-        Node left = new VariableReferenceNode("a", Optional.empty());
-        Node op = new OperationNode(left, new ConstantNode("5"), OperationNode.operationType.ADD);
-        Node as = new AssignmentNode(new VariableReferenceNode("b", Optional.empty()), Optional.of(op));
-        //5 > 4 ? 1 : 0
-        Node right = new TernaryNode(new OperationNode(new ConstantNode("5"), new ConstantNode("4"), OperationNode.operationType.LT), new ConstantNode("1"), new ConstantNode("0"));
-        //a[2] = 5 > 4 ? 1 : 0
-        AssignmentNode assign = new AssignmentNode(left, Optional.of(right));
-
-        HashMap<String, IDT> locals = new HashMap<>();
-        //locals.put("a", new IADT());
-        IDT result = interp.getIDT(assign, Optional.empty());
-        System.out.println("success");
+        Interpreter interp = new Interpreter(program, recordPath);
+        interp.InterpretProgram();
     }
 }

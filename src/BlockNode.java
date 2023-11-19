@@ -5,6 +5,7 @@ public class BlockNode extends Node{
 
     public BlockNode(){
         statements = new LinkedList<>();
+        condition = Optional.empty();
     }
     private LinkedList<StatementNode> statements;
     private Optional<Node> condition;
@@ -17,6 +18,9 @@ public class BlockNode extends Node{
         return this.statements;
     }
 
+    public Optional<Node> getCondition(){
+        return condition;
+    }
     public void addStatement(StatementNode node){
         this.statements.add(node);
     }

@@ -1,4 +1,3 @@
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -10,7 +9,6 @@ import java.util.regex.Pattern;
 
 
 public class Interpreter {
-
     /*
     LIST OF AWK GLOBALS:
     FS - File seperator: what the current file line tokens will be seperated with
@@ -28,16 +26,24 @@ public class Interpreter {
     NF - Number of fields (aka $ arguments)
      */
 
+    //todo more elaborate testing of builtins
+    //im fairly sure everything else works as expected exluding weird edge cases and such
+    //just make sure all the builtins work correctly on some good parameters and call it a day.
+    //todo comments/beutification. make it look nice
+
     private LineManager lmanager;
 
     private HashMap<String, IDT> globals;
 
     private HashMap<String, FunctionNode> functiondefs;
 
+    private ProgramNode program;
+
 
     public Interpreter(ProgramNode program, Optional<String> filepath) throws IOException {
         globals = new HashMap<>();
         functiondefs = new HashMap<>();
+        this.program = program;
 
         if (filepath.isPresent()) {
             lmanager = new LineManager(Files.readAllLines(Paths.get(filepath.get())));
@@ -57,7 +63,9 @@ public class Interpreter {
 
         functiondefs.put("print", new BuiltInFunctionDefinitionNode(params -> {
             if(params.isEmpty()){
-                System.out.print(globals.get("$0").getData());
+                if(globals.containsKey("$0")) {
+                    System.out.print(globals.get("$0").getData());
+                }
                 return null;
             }
 
@@ -65,7 +73,10 @@ public class Interpreter {
             for(int i = 0; i < params.size(); i++){
                 printvals[i] = params.get(String.valueOf(i)).getData();
             }
-            System.out.print(printvals);
+            for(String current : printvals){
+                System.out.print(current);
+            }
+            System.out.print("\n");
             return null;
         }, true));
 
@@ -77,7 +88,7 @@ public class Interpreter {
 
             if(params.size() > 1){
                 String[] printvals = new String[params.size() - 1];
-                for(int i = 1; i < params.size() - 1; i++){
+                for(int i = 1; i < params.size(); i++){
                     printvals[i - 1] = params.get(String.valueOf(i)).getData();
                 }
                 System.out.printf(params.get("0").getData(), printvals);
@@ -198,6 +209,7 @@ public class Interpreter {
         }, false));
 
 //        functiondefs.put("sprintf", new BuiltInFunctionDefinitionNode(params -> {}, false));
+//        functiondefs.put("exit", new BuiltInFunctionDefinitionNode(params -> {}, false));
 
         functiondefs.put("sub", new BuiltInFunctionDefinitionNode(params -> {
             if(params.size() > 3 || params.size() < 2){
@@ -252,7 +264,50 @@ public class Interpreter {
             return params.get("0").getData().toUpperCase();
         }, false));
     }
+    public void InterpretProgram(){
+        for(BlockNode block : program.getStartBlocks()){
+            interpretBlock(block);
+        }
 
+        while(!lmanager.getLineList().isEmpty()){
+            lmanager.SplitAndAssign(globals);
+
+            for(BlockNode block : program.getBlocks()){
+                interpretBlock(block);
+            }
+        }
+
+        for(BlockNode block : program.getEndBlocks()){
+            interpretBlock(block);
+        }
+    }
+
+    private void interpretBlock(BlockNode block){
+        boolean blockCond = false;
+
+        if(block.getCondition().isPresent()){
+            IDT condIDT = getIDT(block.getCondition().get(), Optional.empty());
+            try{
+                float condFloat = Float.parseFloat(condIDT.getData());
+                if(condFloat != 0){
+                    blockCond = true;
+                }
+            }
+            catch (NumberFormatException e){
+                blockCond = !condIDT.getData().isEmpty();
+            }
+        }
+
+        if(!block.getCondition().isPresent() || blockCond){
+            ReturnType ret = new ReturnType(ReturnType.returnType.NORMAL);
+            for(StatementNode statement : block.getStatements()){
+                ret = processStatement(statement, Optional.empty());
+                if(ret.getReturnCause() != ReturnType.returnType.NORMAL){
+                    throw new RuntimeException(ret.getReturnCause() + " is not valid inside a action block");
+                }
+            }
+        }
+    }
     private ReturnType processStatement(StatementNode statement, Optional<HashMap<String, IDT>> locals){
         if(statement instanceof  AssignmentNode){
             return new ReturnType(ReturnType.returnType.NORMAL, getIDT(statement, locals).getData());
@@ -291,7 +346,8 @@ public class Interpreter {
             return processWhileNode((WhileNode) statement, locals);
         }
         else{
-            throw new RuntimeException("error processing statement");
+           //assuming this is some increment or in place math expression with no general effect on the program
+           return new ReturnType(ReturnType.returnType.NORMAL, getIDT(statement, locals).getData());
         }
     }
 
@@ -375,6 +431,7 @@ public class Interpreter {
 
     private ReturnType processForNode(ForNode node, Optional<HashMap<String, IDT>> locals){
         ReturnType ret = new ReturnType(ReturnType.returnType.NORMAL);
+        //initialization assignment
         getIDT(node.getInitialization(), locals);
         IDT cond = getIDT(node.getCondition(), locals);
         boolean stillTrue = false;
@@ -411,7 +468,6 @@ public class Interpreter {
         }
         return ret;
     }
-
     private ReturnType processForEachNode(ForEachNode node, Optional<HashMap<String, IDT>> locals){
         if(node.getArrayExp().getOpType() != OperationNode.operationType.IN){
             throw new RuntimeException("for each loop does not contain a var in array expression");
@@ -452,7 +508,7 @@ public class Interpreter {
             });
             ReturnType ret = new ReturnType(ReturnType.returnType.NORMAL);
             for(String key: keySet){
-                leftVar.setData(array.getIndexes().get(key).getData());
+                leftVar.setData(key);
 
                 ret = interpretListOfStatements(node.getStatements().getStatements(), locals);
                 if(ret.getReturnCause() == ReturnType.returnType.BREAK){
@@ -545,22 +601,20 @@ public class Interpreter {
         }
         return ret;
     }
-    public IDT getIDT(Node current, Optional<HashMap<String, IDT>> locals){
-        if(current instanceof AssignmentNode){
+    private IDT getIDT(Node current, Optional<HashMap<String, IDT>> locals){
+        if(current instanceof AssignmentNode) {
             AssignmentNode assign = (AssignmentNode) current;
             IDT val = getIDT(assign.getRightSide().get(), locals);
-            if(assign.getLeftside() instanceof VariableReferenceNode){
+            if (assign.getLeftside() instanceof VariableReferenceNode) {
                 IDT target = getIDT(assign.getLeftside(), locals);
                 target.setData(val.getData());
                 return val;
-            }
-            else if(assign.getLeftside() instanceof OperationNode
-                    && ((OperationNode) assign.getLeftside()).getOpType() == OperationNode.operationType.DOLLAR){
+            } else if (assign.getLeftside() instanceof OperationNode
+                    && ((OperationNode) assign.getLeftside()).getOpType() == OperationNode.operationType.DOLLAR) {
                 IDT target = getIDT(assign.getLeftside(), locals);
                 target.setData(val.getData());
                 return val;
-            }
-            else{
+            } else {
                 throw new RuntimeException("left side of assignment must be a variable or field reference");
             }
         }
@@ -590,15 +644,7 @@ public class Interpreter {
         else if(current instanceof VariableReferenceNode){
             VariableReferenceNode currentVar = (VariableReferenceNode) current;
             if(locals.isPresent()){
-                if(!locals.get().containsKey(currentVar.getVariableName())){
-                    if(currentVar.getArrayIndex().isPresent()){
-                        locals.get().put(currentVar.getVariableName(), new IADT());
-                    }
-                    else {
-                        locals.get().put(currentVar.getVariableName(), new IDT("0"));
-                    }
-                }
-                else if(!globals.containsKey(currentVar.getVariableName())){
+                if(!globals.containsKey(currentVar.getVariableName()) && !locals.get().containsKey(currentVar.getVariableName())){
                     if(currentVar.getArrayIndex().isPresent()){
                         globals.put(currentVar.getVariableName(), new IADT());
                     }
@@ -667,20 +713,56 @@ public class Interpreter {
                 catch(NumberFormatException e){
                     throw new RuntimeException("math operation failed. attempting math operation on data that is not numerical \n" + e);
                 }
-
+                float solution;
                 switch(currentOP.getOpType()){
                     case ADD:
-                        return new IDT(String.valueOf(leftFloat + rightFloat));
+                        solution = leftFloat + rightFloat;
+                        if(solution == (int) solution){
+                            return new IDT(String.valueOf((int) solution));
+                        }
+                        else {
+                            return new IDT(String.valueOf(leftFloat + rightFloat));
+                        }
                     case SUBTRACT:
-                        return new IDT(String.valueOf(leftFloat - rightFloat));
+                        solution = leftFloat - rightFloat;
+                        if(solution == (int) solution){
+                            return new IDT(String.valueOf((int) solution));
+                        }
+                        else {
+                            return new IDT(String.valueOf(leftFloat - rightFloat));
+                        }
                     case MULTIPLY:
-                        return new IDT(String.valueOf(leftFloat * rightFloat));
+                        solution = leftFloat * rightFloat;
+                        if(solution == (int) solution){
+                            return new IDT(String.valueOf((int) solution));
+                        }
+                        else {
+                            return new IDT(String.valueOf(leftFloat * rightFloat));
+                        }
                     case DIVIDE:
-                        return new IDT(String.valueOf(leftFloat / rightFloat));
+                        solution = leftFloat / rightFloat;
+                        if(solution == (int) solution){
+                            return new IDT(String.valueOf((int) solution));
+                        }
+                        else {
+                            return new IDT(String.valueOf(leftFloat / rightFloat));
+                        }
                     case MODULO:
-                        return new IDT(String.valueOf(leftFloat % rightFloat));
+                        solution = leftFloat % rightFloat;
+                        if(solution == (int) solution){
+                            return new IDT(String.valueOf((int) solution));
+                        }
+                        else {
+                            return new IDT(String.valueOf(leftFloat % rightFloat));
+                        }
                     case EXPONENT:
-                        return new IDT(String.valueOf(Math.pow(leftFloat, rightFloat)));
+                        solution = (float) Math.pow(leftFloat, rightFloat);
+                        if(solution == (int) solution){
+                            return new IDT(String.valueOf((int) solution));
+                        }
+                        else {
+                            return new IDT(String.valueOf(solution));
+                        }
                 }
                 throw new RuntimeException("error at math operation");
             }
@@ -958,6 +1040,32 @@ public class Interpreter {
     }
 
     private String runFunctionCall(FunctionCallNode call, Optional<HashMap<String, IDT>> locals){
-        return "";
+        if(!functiondefs.containsKey(call.getFuncName().getVariableName())){
+            throw new RuntimeException("function " + call.getFuncName().getVariableName() + " is not defined in the program");
+        }
+
+        FunctionNode node = functiondefs.get(call.getFuncName().getVariableName());
+        HashMap<String, IDT> params = new HashMap<>();
+        if(node instanceof BuiltInFunctionDefinitionNode){
+            int i = 0;
+            for(Node param : call.getParams()){
+                params.put(String.valueOf(i), getIDT(param, locals));
+                i++;
+            }
+
+            return ((BuiltInFunctionDefinitionNode) node).execute.apply(params);
+        }
+        else{
+            if(node.getParameters().size() != call.getParams().size()){
+                throw new RuntimeException("incorrect parameters passed to function " + call.getFuncName().getVariableName());
+            }
+            int i = 0;
+            for(Node param : call.getParams()){
+                params.put(node.getParameters().get(i), new IDT(getIDT(param, locals).getData()));
+                i++;
+            }
+
+            return interpretListOfStatements(node.getStatements(), Optional.of(params)).getReturnVal();
+        }
     }
 }

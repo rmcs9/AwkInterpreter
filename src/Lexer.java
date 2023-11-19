@@ -152,7 +152,15 @@ public class Lexer {
         char current = file.getChar();
         String accum = "" + current;
         charPos++;
-        while (!file.isDone() && Character.isDigit(file.peek(0))) {
+        boolean hadDot = false;
+        while (!file.isDone() && (Character.isDigit(file.peek(0)) || file.peek(0) == '.')) {
+            if(file.peek(0) == '.' && !hadDot){
+                accum += file.getChar();
+                hadDot = true;
+            }
+            else if(file.peek(0) == '.' && hadDot){
+                throw new RuntimeException("2 decimal points present in number at line " + linenum);
+            }
             current = file.getChar();
             accum += current;
             charPos++;
@@ -165,9 +173,28 @@ public class Lexer {
         String accum = "";
         while (!file.isDone() && file.peek(0) != '"') {
             if (file.peek(0) == '\\') {
-                accum += '"';
-                file.swallow(2);
-            } else {
+                file.swallow(1);
+                if(file.peek(0) == 'n'){
+                    accum += '\n';
+                    file.swallow(1);
+                }
+                else if(file.peek(0) == '\\'){
+                    file.swallow(1);
+                    if(file.peek(0) == 'n'){
+                        accum += "\\n";
+                        file.swallow(1);
+                    }
+                }
+                else if(file.peek(0) == 't'){
+                    accum += '\t';
+                    file.swallow(1);
+                }
+                else if(file.peek(0) == '"'){
+                    accum += '"';
+                    file.swallow(1);
+                }
+            }
+            else {
                 accum += file.getChar();
                 charPos++;
             }

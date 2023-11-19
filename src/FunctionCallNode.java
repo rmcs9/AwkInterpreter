@@ -2,11 +2,18 @@ import java.util.LinkedList;
 
 public class FunctionCallNode extends StatementNode{
 
-    private Node funcName;
+    private VariableReferenceNode funcName;
 
     private LinkedList<Node> params;
 
-    public FunctionCallNode(Node func, LinkedList<Node> par){
+    public VariableReferenceNode getFuncName() {
+        return funcName;
+    }
+
+    public LinkedList<Node> getParams(){
+        return params;
+    }
+    public FunctionCallNode(VariableReferenceNode func, LinkedList<Node> par){
         funcName = func;
         params = par;
     }

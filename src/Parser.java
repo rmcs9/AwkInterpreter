@@ -82,9 +82,17 @@ public class Parser {
             } else if (tokens.matchAndRemove(Token.TokenType.END).isPresent()) {
                 program.addEndBlock(parseBlock());
             } else {
-                Optional<Node> cond = parseOperation();
+                if(tokens.peek(0).get().type != Token.TokenType.OPEN_PAREN && tokens.peek(0).get().type != Token.TokenType.OPEN_CURLY){
+                    throw new RuntimeException("invalid block found. block must be of type BEGIN, END, (CONDITION) or non condition");
+                }
+                Optional<Node> cond = Optional.empty();
+                if(tokens.peek(0).get().type == Token.TokenType.OPEN_PAREN) {
+                    cond = parseOperation();
+                }
                 BlockNode condBlock = parseBlock();
-                condBlock.addCondition(cond);
+                if(cond.isPresent()){
+                    condBlock.addCondition(cond);
+                }
                 program.addBlock(condBlock);
             }
             return true;
@@ -770,7 +778,7 @@ public class Parser {
                     params.add(currentParam.get());
                     tokens.matchAndRemove(Token.TokenType.COMMA);
                 }
-                return Optional.of(new FunctionCallNode(funcName.get(), params));
+                return Optional.of(new FunctionCallNode((VariableReferenceNode) funcName.get(), params));
             }
             return funcName;
         }
@@ -803,13 +811,28 @@ public class Parser {
             LinkedList<Node> params = new LinkedList<>();
             Optional<Node> currentParam;
             if(tokens.moreTokens()) {
-                while (tokens.peek(0).get().type != Token.TokenType.SEPARATOR){
-                    currentParam = parseOperation();
-                    if(!currentParam.isPresent()){
-                        throw new RuntimeException("failed to parse parameter at " + builtinName + " call");
+                if(tokens.peek(0).get().type != Token.TokenType.OPEN_PAREN) {
+                    while (tokens.peek(0).get().type != Token.TokenType.SEPARATOR
+                            && tokens.peek(0).get().type != Token.TokenType.CLOSE_CURLY) {
+                        currentParam = parseOperation();
+                        if (!currentParam.isPresent()) {
+                            throw new RuntimeException("failed to parse parameter at " + builtinName + " call");
+                        }
+                        params.add(currentParam.get());
+                        tokens.matchAndRemove(Token.TokenType.COMMA);
                     }
-                    params.add(currentParam.get());
-                    tokens.matchAndRemove(Token.TokenType.COMMA);
+                }
+                else{
+                    tokens.matchAndRemove(Token.TokenType.OPEN_PAREN);
+                    while(tokens.peek(0).get().type != Token.TokenType.CLOSE_PAREN){
+                        currentParam = parseOperation();
+                        if (!currentParam.isPresent()) {
+                            throw new RuntimeException("failed to parse parameter at " + builtinName + " call");
+                        }
+                        params.add(currentParam.get());
+                        tokens.matchAndRemove(Token.TokenType.COMMA);
+                    }
+                    tokens.matchAndRemove(Token.TokenType.CLOSE_PAREN);
                 }
                 acceptSeperators();
             }

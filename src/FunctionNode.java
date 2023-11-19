@@ -25,8 +25,15 @@ public class FunctionNode extends Node{
 
     private LinkedList<StatementNode> statements;
 
+    public LinkedList<StatementNode> getStatements(){
+        return statements;
+    }
+
     private LinkedList<String> parameters;
 
+    public LinkedList<String> getParameters(){
+        return parameters;
+    }
     @Override
     public String toString() {
         return null;

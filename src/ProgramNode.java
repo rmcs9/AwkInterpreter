@@ -37,6 +37,17 @@ public class ProgramNode extends Node{
         blocks.add(block);
     }
 
+    public LinkedList<BlockNode> getStartBlocks(){
+        return startBlocks;
+    }
+
+    public LinkedList<BlockNode> getBlocks(){
+        return blocks;
+    }
+
+    public LinkedList<BlockNode> getEndBlocks(){
+        return endBlocks;
+    }
     @Override
     public String toString() {
         return null;

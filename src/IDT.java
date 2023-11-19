@@ -15,7 +15,18 @@ public class IDT {
     }
 
     public void setData(String dat){
-        data = dat;
+        try{
+            float newDataFloat = Float.parseFloat(dat);
+            if(newDataFloat == (int) newDataFloat){
+                data = String.valueOf((int) newDataFloat);
+            }
+            else{
+                data = dat;
+            }
+        }
+        catch (NumberFormatException e) {
+            data = dat;
+        }
     }
 
 }
